@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PowerFlex 4M Fault Troubleshooter</title>
+<style>
+:root{
+  --bg:#0f1420; --surface:#171d2b; --surface2:#1e2636; --surface3:#273041;
+  --text:#e8ecf4; --muted:#9aa6bd; --faint:#6b7689;
+  --border:#2a3348; --border-light:#222a3b;
+  --primary:#3b82f6;
+  --auto:#f5a623; --auto-bg:#3a2d10;
+  --nonreset:#ef4444; --nonreset-bg:#3a1618;
+  --radius:12px; --radius-sm:7px;
+  --mono:'SF Mono',ui-monospace,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1100px;margin:0 auto;padding:16px 16px 80px}
+
+header{text-align:center;padding:14px 16px 10px;position:relative}
+header .badge{display:inline-block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--primary);font-weight:700;border:1px solid var(--border);border-radius:100px;padding:4px 14px;margin-bottom:12px}
+header h1{font-size:26px;font-weight:800;letter-spacing:-.5px}
+header p{color:var(--muted);font-size:13.5px;margin-top:7px;max-width:620px;margin-left:auto;margin-right:auto}
+header .src{color:var(--faint);font-size:11px;margin-top:9px;font-family:var(--mono)}
+
+/* language toggle */
+.langtog{display:flex;justify-content:center;margin:14px 0 4px}
+.langtog .seg{display:inline-flex;background:var(--surface2);border:1px solid var(--border);border-radius:100px;padding:3px}
+.langtog button{background:none;border:none;color:var(--muted);font-size:13px;font-weight:700;padding:7px 20px;border-radius:100px;cursor:pointer;transition:all .15s}
+.langtog button.active{background:var(--primary);color:#fff}
+
+.searchbar{position:sticky;top:0;z-index:40;background:linear-gradient(var(--bg) 72%,transparent);padding:12px 0 14px}
+.searchbox{position:relative;max-width:620px;margin:0 auto}
+.searchbox input{width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:100px;color:var(--text);font-size:15px;padding:13px 46px 13px 46px;outline:none;transition:border-color .15s,box-shadow .15s}
+.searchbox input:focus{border-color:var(--primary);box-shadow:0 0 0 4px rgba(59,130,246,.14)}
+.searchbox .mag{position:absolute;left:17px;top:50%;transform:translateY(-50%);color:var(--faint);font-size:17px}
+.searchbox .clear{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--faint);font-size:19px;cursor:pointer;display:none;background:none;border:none;line-height:1}
+.searchbox .clear:hover{color:var(--text)}
+
+.tabs{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:4px 0 22px}
+.tab{background:var(--surface2);border:1px solid var(--border);color:var(--muted);font-size:13px;font-weight:600;padding:9px 15px;border-radius:100px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.tab:hover{color:var(--text);border-color:var(--primary)}
+.tab.active{background:var(--primary);border-color:var(--primary);color:#fff}
+
+.panel{display:none}
+.panel.active{display:block;animation:fade .3s ease-out}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+.sect-intro{color:var(--muted);font-size:13.5px;margin-bottom:16px;padding:12px 16px;background:var(--surface);border:1px solid var(--border-light);border-radius:var(--radius-sm);border-left:3px solid var(--primary)}
+
+.legend{display:flex;gap:14px;justify-content:center;margin-bottom:18px;flex-wrap:wrap}
+.legend span{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.dot{width:11px;height:11px;border-radius:50%}
+.dot.auto{background:var(--auto)} .dot.nonreset{background:var(--nonreset)}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+.fault{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:border-color .15s,transform .15s}
+.fault:hover{border-color:var(--primary);transform:translateY(-2px)}
+.fault .top{display:flex;align-items:center;gap:11px;padding:14px 16px;cursor:pointer;user-select:none}
+.fcode{font-family:var(--mono);font-weight:800;font-size:16px;padding:5px 11px;border-radius:var(--radius-sm);flex-shrink:0}
+.fcode.auto{background:var(--auto-bg);color:var(--auto);border:1px solid var(--auto)}
+.fcode.nonreset{background:var(--nonreset-bg);color:var(--nonreset);border:1px solid var(--nonreset)}
+.fname{font-weight:700;font-size:15px}
+.ftype{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.chev{color:var(--faint);transition:transform .2s;font-size:13px}
+.fault.open .chev{transform:rotate(90deg)}
+.fbody{max-height:0;overflow:hidden;transition:max-height .3s ease}
+.fault.open .fbody{max-height:1400px}
+.fbody-inner{padding:0 16px 16px}
+.cause{font-size:13px;color:var(--muted);background:var(--surface2);border-radius:var(--radius-sm);padding:11px 13px;margin-bottom:13px;border-left:3px solid var(--border)}
+.cause b{color:var(--text);font-weight:700}
+.steps-label{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--faint);font-weight:700;margin-bottom:9px}
+ol.steps{list-style:none;counter-reset:s}
+ol.steps li{counter-increment:s;position:relative;padding:7px 0 7px 32px;font-size:13.5px;color:var(--text);border-bottom:1px solid var(--border-light)}
+ol.steps li:last-child{border-bottom:none}
+ol.steps li::before{content:counter(s);position:absolute;left:0;top:7px;width:21px;height:21px;background:var(--primary);color:#fff;border-radius:50%;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:var(--mono)}
+.pchips{margin-top:12px;display:flex;flex-wrap:wrap;gap:6px}
+.pchip{font-family:var(--mono);font-size:11px;background:var(--surface3);color:var(--primary);border:1px solid var(--border);border-radius:5px;padding:3px 8px;cursor:pointer;transition:all .12s}
+.pchip:hover{background:var(--primary);color:#fff}
+
+.symp{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px;overflow:hidden}
+.symp .shead{display:flex;align-items:center;gap:12px;padding:15px 17px;cursor:pointer;user-select:none;font-weight:700;font-size:15px}
+.symp .shead .ico{color:var(--primary);font-size:13px}
+.symp .shead .chev{margin-left:auto}
+.symp.open .chev{transform:rotate(90deg)}
+.sbody{max-height:0;overflow:hidden;transition:max-height .35s ease}
+.symp.open .sbody{max-height:2200px}
+.srow{padding:13px 17px;border-top:1px solid var(--border-light)}
+.srow .c{font-weight:600;font-size:13.5px;color:var(--text);margin-bottom:3px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.srow .ind{font-size:11px;color:var(--auto);font-family:var(--mono)}
+.srow .a{font-size:13px;color:var(--muted);margin-top:5px}
+
+.pgroup{margin-bottom:22px}
+.pgroup h3{font-size:14px;font-weight:700;color:var(--primary);margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid var(--border)}
+.ptable{width:100%;border-collapse:collapse;font-size:13px}
+.ptable td{padding:9px 11px;border-bottom:1px solid var(--border-light);vertical-align:top}
+.ptable tr:hover td{background:var(--surface2)}
+.ptable .pid{font-family:var(--mono);font-weight:700;color:var(--primary);white-space:nowrap;width:60px}
+.ptable .pnm{font-weight:600;white-space:nowrap;width:150px}
+.ptable .pds{color:var(--muted);font-size:12.5px}
+.ptable .pds .warn{color:var(--auto);font-weight:600}
+
+.proc{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;margin-bottom:16px}
+.proc h3{font-size:16px;margin-bottom:13px;display:flex;align-items:center;gap:9px}
+.proc h3 .n{width:26px;height:26px;background:var(--primary);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;font-family:var(--mono);flex-shrink:0}
+.proc ul{list-style:none}
+.proc ul li{padding:8px 0 8px 24px;position:relative;font-size:13.5px;border-bottom:1px solid var(--border-light)}
+.proc ul li:last-child{border-bottom:none}
+.proc ul li::before{content:"▸";position:absolute;left:4px;color:var(--primary);font-weight:700}
+.proc code{font-family:var(--mono);background:var(--surface3);color:var(--primary);padding:1px 6px;border-radius:4px;font-size:12px}
+.warnbox{background:var(--nonreset-bg);border:1px solid var(--nonreset);border-radius:var(--radius-sm);padding:13px 15px;margin-bottom:16px;font-size:13px;color:#fecaca}
+.warnbox b{color:#fff}
+.prot{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:11px}
+.pcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:13px 15px}
+.pcard .t{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);font-weight:700;margin-bottom:5px}
+.pcard .v{font-size:13.5px;color:var(--text)}
+
+/* wiring */
+.wsub{font-size:15px;font-weight:700;color:var(--primary);margin:22px 0 11px}
+.scheme{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:15px 17px;margin-bottom:12px}
+.scheme .sn{font-weight:700;font-size:14.5px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.scheme .p106{font-family:var(--mono);font-size:11px;background:var(--surface3);color:var(--primary);border:1px solid var(--border);border-radius:5px;padding:2px 8px}
+.scheme .sd{color:var(--muted);font-size:13px;margin-top:7px}
+.scheme .sw{font-family:var(--mono);font-size:12px;color:var(--auto);margin-top:8px;background:var(--auto-bg);border-radius:5px;padding:6px 10px;display:inline-block}
+.notelist{list-style:none;margin-top:4px}
+.notelist li{padding:9px 0 9px 24px;position:relative;font-size:13px;color:var(--muted);border-bottom:1px solid var(--border-light)}
+.notelist li:last-child{border-bottom:none}
+.notelist li::before{content:"•";position:absolute;left:6px;color:var(--primary);font-weight:700}
+.notelist li.warn{color:#fecaca}
+
+.noresult{text-align:center;color:var(--faint);padding:50px 20px;font-size:15px;display:none}
+footer{text-align:center;color:var(--faint);font-size:11px;margin-top:40px;line-height:1.7}
+[lang-hi]{font-family:'Nirmala UI','Noto Sans Devanagari',var(--sans)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="badge">Allen-Bradley · Rockwell Automation</div>
+  <h1 data-en="PowerFlex 4M Fault Troubleshooter" data-hi="PowerFlex 4M फॉल्ट ट्रबलशूटर">PowerFlex 4M Fault Troubleshooter</h1>
+  <p data-en="Interactive troubleshooting for the PowerFlex 4M (22F) AC drive — fault codes, symptom diagnostics, full parameter reference, clearing procedures, and control wiring." data-hi="PowerFlex 4M (22F) AC ड्राइव के लिए इंटरैक्टिव ट्रबलशूटिंग — फॉल्ट कोड, लक्षण निदान, पूर्ण पैरामीटर संदर्भ, क्लियरिंग प्रक्रिया, और कंट्रोल वायरिंग।">Interactive troubleshooting for the PowerFlex 4M (22F) AC drive — fault codes, symptom diagnostics, full parameter reference, clearing procedures, and control wiring.</p>
+  <div class="src">Publication 22F-UM001E-EN-E · September 2024 · 114-page manual</div>
+  <div class="langtog">
+    <div class="seg">
+      <button id="btn-en" class="active" onclick="setLang('en')">English</button>
+      <button id="btn-hi" onclick="setLang('hi')">हिन्दी</button>
+    </div>
+  </div>
+</header>
+
+<div class="searchbar">
+  <div class="searchbox">
+    <span class="mag">⌕</span>
+    <input id="q" type="text" placeholder="Search… (e.g. F7, overload, P103, won't start)" autocomplete="off">
+    <button class="clear" id="clearBtn" aria-label="clear">×</button>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" data-p="faults" data-en="⚠ Fault Codes" data-hi="⚠ फॉल्ट कोड">⚠ Fault Codes</button>
+  <button class="tab" data-p="symptoms" data-en="🔍 Symptoms" data-hi="🔍 लक्षण">🔍 Symptoms</button>
+  <button class="tab" data-p="params" data-en="⚙ Parameters" data-hi="⚙ पैरामीटर">⚙ Parameters</button>
+  <button class="tab" data-p="wiring" data-en="🔌 Wiring" data-hi="🔌 वायरिंग">🔌 Wiring</button>
+  <button class="tab" data-p="procedures" data-en="🛠 Clearing & Limits" data-hi="🛠 क्लियरिंग व सीमाएँ">🛠 Clearing &amp; Limits</button>
+</div>
+
+<div class="noresult" id="noresult" data-en="No matches found. Try a fault code (F7), a keyword (overload), or a parameter (P103)." data-hi="कोई मिलान नहीं। फॉल्ट कोड (F7), कीवर्ड (overload), या पैरामीटर (P103) आज़माएँ।">No matches found.</div>
+
+<section class="panel active" id="p-faults">
+  <div class="legend">
+    <span><span class="dot auto"></span><span data-en="Auto-reset (Type 1) — can auto-restart via A451/A452" data-hi="ऑटो-रीसेट (टाइप 1) — A451/A452 से ऑटो-रीस्टार्ट">Auto-reset (Type 1)</span></span>
+    <span><span class="dot nonreset"></span><span data-en="Non-resettable (Type 2) — fix cause, then clear manually" data-hi="नॉन-रीसेटेबल (टाइप 2) — कारण ठीक कर मैन्युअल क्लियर करें">Non-resettable (Type 2)</span></span>
+  </div>
+  <div class="grid" id="faultGrid"></div>
+</section>
+
+<section class="panel" id="p-symptoms">
+  <div class="sect-intro" data-en="Pick the behaviour you're seeing. Each lists the likely cause, the keypad indication, and the corrective action." data-hi="जो व्यवहार दिख रहा है उसे चुनें। प्रत्येक में संभावित कारण, कीपैड संकेत, और सुधारात्मक कार्रवाई दी गई है।">Pick the behaviour you're seeing.</div>
+  <div id="sympList"></div>
+</section>
+
+<section class="panel" id="p-params">
+  <div class="sect-intro" data-en="Complete parameter list (85). d = Display (read-only), P = Basic Program, t = Terminal Block, C = Communications, A = Advanced. ⚠ = stop drive before changing." data-hi="पूर्ण पैरामीटर सूची (85)। d = डिस्प्ले (रीड-ओनली), P = बेसिक प्रोग्राम, t = टर्मिनल ब्लॉक, C = कम्युनिकेशन, A = एडवांस्ड। ⚠ = बदलने से पहले ड्राइव रोकें।">Complete parameter list.</div>
+  <div id="paramList"></div>
+</section>
+
+<section class="panel" id="p-wiring">
+  <div class="sect-intro" data-en="Control I/O terminals, 2-wire / 3-wire SNK/SRC control schemes, power terminals, and wiring rules — from the Installation/Wiring chapter." data-hi="कंट्रोल I/O टर्मिनल, 2-वायर / 3-वायर SNK/SRC कंट्रोल स्कीम, पावर टर्मिनल, और वायरिंग नियम — इंस्टॉलेशन/वायरिंग अध्याय से।">Control wiring reference.</div>
+  <div class="wsub" data-en="Control Schemes (2-wire / 3-wire)" data-hi="कंट्रोल स्कीम (2-वायर / 3-वायर)">Control Schemes</div>
+  <div id="schemeList"></div>
+  <div class="wsub" data-en="Control I/O Terminal Block" data-hi="कंट्रोल I/O टर्मिनल ब्लॉक">Control I/O Terminal Block</div>
+  <table class="ptable"><tbody id="ioList"></tbody></table>
+  <div class="wsub" data-en="Power Terminal Block" data-hi="पावर टर्मिनल ब्लॉक">Power Terminal Block</div>
+  <table class="ptable"><tbody id="powList"></tbody></table>
+  <div class="wsub" data-en="Wiring Rules & Cautions" data-hi="वायरिंग नियम व सावधानियाँ">Wiring Rules & Cautions</div>
+  <ul class="notelist" id="noteList"></ul>
+</section>
+
+<section class="panel" id="p-procedures">
+  <div class="warnbox">⚠ <b data-en="Safety first." data-hi="सुरक्षा पहले।">Safety first.</b> <span data-en="Before touching any wiring, remove all power (including control voltage) and verify the DC bus has discharged — measure DC+/DC- = 0 V. Darkened LEDs do not mean it is safe. Only qualified personnel should service the drive." data-hi="कोई भी वायरिंग छूने से पहले सारी पावर (कंट्रोल वोल्टेज सहित) हटाएँ और पुष्टि करें कि DC बस डिस्चार्ज हो गया — DC+/DC- = 0V मापें। बुझे LED का मतलब सुरक्षित नहीं। केवल योग्य कर्मी ही सर्विस करें।">Before touching wiring, remove all power.</span></div>
+
+  <div class="proc">
+    <h3><span class="n">1</span><span data-en="Read the fault" data-hi="फॉल्ट पढ़ें">Read the fault</span></h3>
+    <ul>
+      <li data-en="Press <code>Esc</code> to acknowledge the flashing fault and regain the keypad." data-hi="फ्लैशिंग फॉल्ट स्वीकार करने और कीपैड वापस पाने हेतु <code>Esc</code> दबाएँ।">Press <code>Esc</code> to acknowledge.</li>
+      <li data-en="Open <code>d007</code> [Fault 1 Code] for the most recent fault; <code>d008</code>/<code>d009</code> hold the two before it." data-hi="सबसे हाल के फॉल्ट हेतु <code>d007</code> [Fault 1 Code] खोलें; <code>d008</code>/<code>d009</code> उससे पहले के दो रखते हैं।">Open <code>d007</code>.</li>
+      <li data-en="Look the code up in the Fault Codes tab for cause & remedy." data-hi="कारण व उपाय हेतु फॉल्ट कोड टैब में कोड देखें।">Look up the code.</li>
+    </ul>
+  </div>
+  <div class="proc">
+    <h3><span class="n">2</span><span data-en="Correct the cause" data-hi="कारण ठीक करें">Correct the cause</span></h3>
+    <ul>
+      <li data-en="The cause <b>must</b> be corrected before a Type 2 (non-resettable) fault will clear." data-hi="टाइप 2 (नॉन-रीसेटेबल) फॉल्ट क्लियर होने से पहले कारण <b>अवश्य</b> ठीक करें।">Fix cause for Type 2.</li>
+      <li data-en="Type 1 (auto-reset) faults can be cleared first, but will re-trip until the root cause is resolved." data-hi="टाइप 1 (ऑटो-रीसेट) फॉल्ट पहले क्लियर हो सकते हैं, पर जड़ कारण हल होने तक दोबारा ट्रिप होंगे।">Type 1 re-trips until fixed.</li>
+    </ul>
+  </div>
+  <div class="proc">
+    <h3><span class="n">3</span><span data-en="Clear the fault — any one method" data-hi="फॉल्ट क्लियर करें — कोई एक तरीका">Clear the fault</span></h3>
+    <ul>
+      <li data-en="Press <code>Stop</code> (if P107 [Stop Mode] is 0–3)." data-hi="<code>Stop</code> दबाएँ (यदि P107 [Stop Mode] 0–3 हो)।">Press <code>Stop</code>.</li>
+      <li data-en="Cycle drive power." data-hi="ड्राइव पावर साइकल करें।">Cycle power.</li>
+      <li data-en="Set <code>A450</code> [Fault Clear] = 1 (Reset Fault) or 2 (Clear Buffer)." data-hi="<code>A450</code> [Fault Clear] = 1 (रीसेट) या 2 (बफर क्लियर) सेट करें।">Set <code>A450</code>.</li>
+      <li data-en="Cycle a digital input set to 'Clear Fault' (<code>t201</code>/<code>t202</code> = 7)." data-hi="'Clear Fault' पर सेट डिजिटल इनपुट साइकल करें (<code>t201</code>/<code>t202</code> = 7)।">Cycle digital input.</li>
+    </ul>
+  </div>
+  <div class="proc">
+    <h3><span class="n">4</span><span data-en="Auto-restart (unattended)" data-hi="ऑटो-रीस्टार्ट (अनअटेंडेड)">Auto-restart</span></h3>
+    <ul>
+      <li data-en="Clear a Type 1 fault <b>and restart</b>: <code>A451</code> > 0 and <code>A452</code> > 0." data-hi="टाइप 1 फॉल्ट क्लियर कर <b>रीस्टार्ट</b>: <code>A451</code> > 0 और <code>A452</code> > 0।">A451>0, A452>0.</li>
+      <li data-en="Clear OverVoltage/UnderVoltage/Heatsink <b>without</b> restart: <code>A451</code> > 0 and <code>A452</code> = 0." data-hi="ओवर/अंडर-वोल्टेज/हीटसिंक <b>बिना</b> रीस्टार्ट क्लियर: <code>A451</code> > 0 और <code>A452</code> = 0।">A451>0, A452=0.</li>
+      <li class="warn" data-en="⚠ The drive issues its own start command — ensure this is safe for your application." data-hi="⚠ ड्राइव स्वयं स्टार्ट कमांड देती है — सुनिश्चित करें कि यह आपके अनुप्रयोग हेतु सुरक्षित है।">⚠ Drive self-starts.</li>
+    </ul>
+  </div>
+
+  <div class="wsub" data-en="Protection thresholds & key specs" data-hi="सुरक्षा सीमाएँ व मुख्य स्पेक">Protection thresholds & key specs</div>
+  <div class="prot" id="protList"></div>
+</section>
+
+<footer>
+  <span data-en="Reference tool compiled from the full PowerFlex 4M User Manual (22F-UM001E-EN-E, Sept 2024)." data-hi="पूर्ण PowerFlex 4M यूज़र मैनुअल (22F-UM001E-EN-E, सित. 2024) से संकलित संदर्भ टूल।">Reference tool compiled from the full PowerFlex 4M User Manual.</span><br>
+  <span data-en="For field use by qualified RME / electrical personnel. Always refer to the official manual for authoritative specifications." data-hi="योग्य RME / इलेक्ट्रिकल कर्मियों के फील्ड उपयोग हेतु। आधिकारिक स्पेक हेतु हमेशा मूल मैनुअल देखें।">For field use by qualified personnel.</span>
+</footer>
+</div>
+
+<script>
+const DATA = {"faults": [{"code": "F2", "name": "Auxiliary Input", "type": "Auto", "cause": "Auxiliary input interlock is open. A digital input configured as 'Aux Fault' (t201/t202 = 3) has opened.", "actions": ["Check remote wiring to the digital input terminal (05/06).", "Verify the external interlock device (thermal relay, safety/door switch) is healthy.", "Verify communications programming — confirm the fault was not triggered intentionally by the network master."], "params": ["t201", "t202"], "name_hi": "ऑक्ज़िलरी इनपुट", "cause_hi": "ऑक्ज़िलरी इनपुट इंटरलॉक खुला है। 'Aux Fault' के रूप में सेट किया गया डिजिटल इनपुट (t201/t202 = 3) खुल गया है।", "actions_hi": ["डिजिटल इनपुट टर्मिनल (05/06) की रिमोट वायरिंग जाँचें।", "बाहरी इंटरलॉक डिवाइस (थर्मल रिले, सेफ्टी/डोर स्विच) की स्थिति जाँचें।", "कम्युनिकेशन प्रोग्रामिंग जाँचें — पुष्टि करें कि फॉल्ट जानबूझकर नेटवर्क मास्टर से ट्रिगर नहीं हुआ।"]}, {"code": "F3", "name": "Power Loss", "type": "NonReset", "cause": "Excessive DC Bus voltage ripple — indicates input phase loss or line imbalance.", "actions": ["Monitor the incoming line (R/L1, S/L2, T/L3) for phase loss or line imbalance.", "Check input line fuses / MCB poles — a blown fuse on one phase causes DC bus ripple.", "Check the supply contactor — all poles must make proper contact."], "params": [], "name_hi": "पावर लॉस", "cause_hi": "अत्यधिक DC बस वोल्टेज रिपल — इनपुट फेज़ लॉस या लाइन असंतुलन का संकेत।", "actions_hi": ["इनकमिंग लाइन (R/L1, S/L2, T/L3) में फेज़ लॉस या लाइन असंतुलन की निगरानी करें।", "इनपुट लाइन फ्यूज़ / MCB पोल जाँचें — एक फेज़ पर उड़ा फ्यूज़ DC बस रिपल पैदा करता है।", "सप्लाई कॉन्टैक्टर जाँचें — सभी पोल सही संपर्क बनाएँ।"]}, {"code": "F4", "name": "UnderVoltage", "type": "Auto", "cause": "DC bus voltage fell below the minimum value. AC input dropped too low or was interrupted. (Trip: 210V DC bus on 200-240V input; 390V DC bus on 380-480V input.)", "actions": ["Monitor the incoming AC line for low voltage or power interruption.", "Check for loose input terminal connections; torque per spec.", "Consider a line reactor if the supply is unstable.", "Enable auto-restart: A451 [Auto Rstrt Tries] > 0 and A452 [Auto Rstrt Delay] > 0."], "params": ["A451", "A452"], "name_hi": "अंडरवोल्टेज", "cause_hi": "DC बस वोल्टेज न्यूनतम मान से नीचे गिर गया। AC इनपुट बहुत कम हो गया या बाधित हुआ। (ट्रिप: 200–240V इनपुट पर 210V DC बस; 380–480V इनपुट पर 390V DC बस।)", "actions_hi": ["इनकमिंग AC लाइन में कम वोल्टेज या पावर रुकावट की निगरानी करें।", "ढीले इनपुट टर्मिनल कनेक्शन जाँचें; स्पेक के अनुसार टॉर्क करें।", "सप्लाई अस्थिर हो तो लाइन रिएक्टर लगाएँ।", "ऑटो-रीस्टार्ट सक्षम करें: A451 > 0 और A452 > 0।"]}, {"code": "F5", "name": "OverVoltage", "type": "Auto", "cause": "DC bus voltage exceeded the maximum value — high line voltage, transients, or motor regeneration. (Trip: 405V DC bus on 200-240V input; 810V DC bus on 380-480V input.)", "actions": ["Monitor the AC line for high line voltage or transient conditions.", "Extend the decel time: increase P110 [Decel Time 1] or A402 [Decel Time 2].", "Enable the bus regulator: A441 [Bus Reg Mode] = 1 (Enabled).", "For overhauling / high-inertia loads, install the dynamic brake option (A427)."], "params": ["P110", "A402", "A441", "A427"], "name_hi": "ओवरवोल्टेज", "cause_hi": "DC बस वोल्टेज अधिकतम मान से अधिक — उच्च लाइन वोल्टेज, ट्रांज़िएंट, या मोटर रीजनरेशन। (ट्रिप: 200–240V इनपुट पर 405V DC बस; 380–480V इनपुट पर 810V DC बस।)", "actions_hi": ["AC लाइन में उच्च वोल्टेज या ट्रांज़िएंट की निगरानी करें।", "डिसेल टाइम बढ़ाएँ: P110 या A402 बढ़ाएँ।", "बस रेगुलेटर सक्षम करें: A441 = 1।", "उच्च-इनर्शिया लोड के लिए डायनेमिक ब्रेक विकल्प (A427) लगाएँ।"]}, {"code": "F6", "name": "Motor Stalled", "type": "Auto", "cause": "Drive is unable to accelerate the motor — output current hit the current limit and speed did not increase.", "actions": ["Increase P109 [Accel Time 1] and/or A401 [Accel Time 2].", "Reduce the load so drive output current does not exceed A442 [Current Limit].", "Check the mechanical load for jams, seized bearings, or excess friction.", "Verify A453 [Boost Select] is adequate."], "params": ["P109", "A401", "A442", "A453"], "name_hi": "मोटर स्टॉल्ड", "cause_hi": "ड्राइव मोटर को एक्सेलरेट नहीं कर पा रही — आउटपुट करंट करंट लिमिट तक पहुँच गया और स्पीड नहीं बढ़ी।", "actions_hi": ["P109 और/या A401 (एक्सेल टाइम) बढ़ाएँ।", "लोड घटाएँ ताकि आउटपुट करंट A442 [करंट लिमिट] से अधिक न हो।", "मैकेनिकल लोड में जाम, सीज़ बियरिंग या अत्यधिक घर्षण जाँचें।", "A453 [बूस्ट सिलेक्ट] पर्याप्त है, यह जाँचें।"]}, {"code": "F7", "name": "Motor Overload", "type": "Auto", "cause": "Internal electronic (I²t) overload trip — motor current exceeded P103 by 150% for 60s or 200% for 3s.", "actions": ["Reduce the excessive motor load so output current stays below P103 [Motor OL Current].", "Verify P103 [Motor OL Current] matches the motor nameplate FLA (combined total for multiple motors).", "Verify A453 [Boost Select] is not set too high.", "Compare d003 [Output Current] with P103 to confirm genuine overload.", "Megger the motor for shorted turns / worn bearings."], "params": ["P103", "A453", "d003", "A444"], "name_hi": "मोटर ओवरलोड", "cause_hi": "आंतरिक इलेक्ट्रॉनिक (I²t) ओवरलोड ट्रिप — मोटर करंट P103 से 150% पर 60 सेकंड या 200% पर 3 सेकंड तक अधिक रहा।", "actions_hi": ["अत्यधिक मोटर लोड घटाएँ ताकि आउटपुट करंट P103 [मोटर OL करंट] से नीचे रहे।", "पुष्टि करें कि P103 मोटर नेमप्लेट FLA से मेल खाता है (कई मोटरों के लिए कुल योग)।", "पुष्टि करें कि A453 [बूस्ट सिलेक्ट] बहुत अधिक सेट नहीं है।", "वास्तविक ओवरलोड की पुष्टि के लिए d003 [आउटपुट करंट] की P103 से तुलना करें।", "शॉर्टेड टर्न / घिसे बियरिंग के लिए मोटर का मेगर टेस्ट करें।"]}, {"code": "F8", "name": "Heatsink OvrTmp", "type": "Auto", "cause": "Heatsink temperature exceeded a predefined value.", "actions": ["Check for blocked or dirty heatsink fins — clean with dry compressed air.", "Check the cooling fan spins freely; replace if stalled.", "Verify ambient temperature ≤ 40 °C (IP30/NEMA 1) or ≤ 50 °C (IP20/Open).", "Maintain minimum 76mm (3 in) clearance above and below the drive.", "Reduce A446 [PWM Frequency] to lower drive heat."], "params": ["A446", "d022"], "name_hi": "हीटसिंक ओवरटेम्प", "cause_hi": "हीटसिंक तापमान पूर्वनिर्धारित मान से अधिक हो गया।", "actions_hi": ["ब्लॉक या गंदे हीटसिंक फिन जाँचें — सूखी कंप्रेस्ड एयर से साफ करें।", "कूलिंग फैन स्वतंत्र रूप से घूमता है, जाँचें; रुका हो तो बदलें।", "परिवेश तापमान ≤ 40°C (IP30/NEMA 1) या ≤ 50°C (IP20/Open) सुनिश्चित करें।", "ड्राइव के ऊपर-नीचे न्यूनतम 76mm (3 इंच) क्लीयरेंस रखें।", "ड्राइव की गर्मी कम करने के लिए A446 [PWM फ्रीक्वेंसी] घटाएँ।"]}, {"code": "F12", "name": "HW OverCurrent", "type": "NonReset", "cause": "Output current exceeded the hardware current limit (instantaneous IGBT protection).", "actions": ["Check programming — look for improper A453 [Boost Select] setting.", "Check for excess load or a short circuit; megger the motor cable and windings.", "Verify A425 [DC Brake Level] is not set too high.", "Reduce load or extend P109 [Accel Time 1].", "Replace drive if no external cause is found."], "params": ["A453", "A425", "P109"], "name_hi": "HW ओवरकरंट", "cause_hi": "आउटपुट करंट हार्डवेयर करंट लिमिट से अधिक (तात्कालिक IGBT सुरक्षा)।", "actions_hi": ["प्रोग्रामिंग जाँचें — गलत A453 [बूस्ट सिलेक्ट] सेटिंग देखें।", "अत्यधिक लोड या शॉर्ट सर्किट जाँचें; मोटर केबल व वाइंडिंग का मेगर टेस्ट करें।", "A425 [DC ब्रेक लेवल] बहुत अधिक सेट न हो, यह जाँचें।", "लोड घटाएँ या P109 [एक्सेल टाइम] बढ़ाएँ।", "कोई बाहरी कारण न मिले तो ड्राइव बदलें।"]}, {"code": "F13", "name": "Ground Fault", "type": "NonReset", "cause": "A current path to earth ground detected at one or more drive output terminals.", "actions": ["Megger each motor cable conductor to ground (must be >1 MΩ).", "Megger each motor phase winding to the frame/earth.", "Inspect junction boxes for moisture, condensation, or damaged glands.", "Inspect the cable route for pinch points, abrasion, rodent damage."], "params": [], "name_hi": "ग्राउंड फॉल्ट", "cause_hi": "एक या अधिक ड्राइव आउटपुट टर्मिनल पर अर्थ ग्राउंड की ओर करंट पथ का पता चला।", "actions_hi": ["प्रत्येक मोटर केबल कंडक्टर का ग्राउंड से मेगर टेस्ट करें (>1 MΩ होना चाहिए)।", "प्रत्येक मोटर फेज़ वाइंडिंग का फ्रेम/अर्थ से मेगर टेस्ट करें।", "जंक्शन बॉक्स में नमी, संघनन या क्षतिग्रस्त ग्लैंड जाँचें।", "केबल रूट में पिंच पॉइंट, घर्षण, कृंतक क्षति जाँचें।"]}, {"code": "F33", "name": "Auto Rstrt Tries", "type": "NonReset", "cause": "Drive exhausted all programmed A451 [Auto Rstrt Tries] attempts without success.", "actions": ["Identify the original recurring fault via d007/d008/d009 and fix its root cause.", "Manually clear: Stop, cycle power, or A450 [Fault Clear] = 1.", "Review A451/A452 settings for intermittent faults."], "params": ["A451", "A452", "A450", "d007"], "name_hi": "ऑटो रीस्टार्ट ट्राइज़", "cause_hi": "ड्राइव ने सभी प्रोग्राम किए गए A451 [ऑटो रीस्टार्ट ट्राइज़] प्रयास बिना सफलता के समाप्त कर दिए।", "actions_hi": ["d007/d008/d009 के ज़रिए मूल बार-बार होने वाले फॉल्ट की पहचान करें और जड़ कारण ठीक करें।", "मैन्युअल रूप से क्लियर करें: Stop, पावर साइकल, या A450 = 1।", "रुक-रुक कर होने वाले फॉल्ट के लिए A451/A452 सेटिंग्स की समीक्षा करें।"]}, {"code": "F38", "name": "Phase U to Gnd", "type": "NonReset", "cause": "A phase-to-ground fault detected between drive and motor on the U phase.", "actions": ["Check the wiring between drive and motor (U/T1).", "Megger the motor U-phase winding to frame ground.", "Replace drive if the fault cannot be cleared."], "params": [], "name_hi": "फेज़ U से ग्राउंड", "cause_hi": "ड्राइव और मोटर के बीच U फेज़ पर फेज़-टू-ग्राउंड फॉल्ट का पता चला।", "actions_hi": ["ड्राइव और मोटर (U/T1) के बीच वायरिंग जाँचें।", "मोटर U-फेज़ वाइंडिंग का फ्रेम ग्राउंड से मेगर टेस्ट करें।", "फॉल्ट क्लियर न हो तो ड्राइव बदलें।"]}, {"code": "F39", "name": "Phase V to Gnd", "type": "NonReset", "cause": "A phase-to-ground fault detected between drive and motor on the V phase.", "actions": ["Check the wiring between drive and motor (V/T2).", "Megger the motor V-phase winding to frame ground.", "Replace drive if the fault cannot be cleared."], "params": [], "name_hi": "फेज़ V से ग्राउंड", "cause_hi": "ड्राइव और मोटर के बीच V फेज़ पर फेज़-टू-ग्राउंड फॉल्ट का पता चला।", "actions_hi": ["ड्राइव और मोटर (V/T2) के बीच वायरिंग जाँचें।", "मोटर V-फेज़ वाइंडिंग का फ्रेम ग्राउंड से मेगर टेस्ट करें।", "फॉल्ट क्लियर न हो तो ड्राइव बदलें।"]}, {"code": "F40", "name": "Phase W to Gnd", "type": "NonReset", "cause": "A phase-to-ground fault detected between drive and motor on the W phase.", "actions": ["Check the wiring between drive and motor (W/T3).", "Megger the motor W-phase winding to frame ground.", "Replace drive if the fault cannot be cleared."], "params": [], "name_hi": "फेज़ W से ग्राउंड", "cause_hi": "ड्राइव और मोटर के बीच W फेज़ पर फेज़-टू-ग्राउंड फॉल्ट का पता चला।", "actions_hi": ["ड्राइव और मोटर (W/T3) के बीच वायरिंग जाँचें।", "मोटर W-फेज़ वाइंडिंग का फ्रेम ग्राउंड से मेगर टेस्ट करें।", "फॉल्ट क्लियर न हो तो ड्राइव बदलें।"]}, {"code": "F41", "name": "Phase UV Short", "type": "NonReset", "cause": "Excessive current detected between output terminals U and V.", "actions": ["Check the motor and drive output terminal wiring for a shorted condition.", "Megger phase-to-phase (U to V).", "Replace drive if the fault cannot be cleared."], "params": [], "name_hi": "फेज़ UV शॉर्ट", "cause_hi": "आउटपुट टर्मिनल U और V के बीच अत्यधिक करंट का पता चला।", "actions_hi": ["मोटर व ड्राइव आउटपुट टर्मिनल वायरिंग में शॉर्ट जाँचें।", "फेज़-टू-फेज़ (U से V) मेगर टेस्ट करें।", "फॉल्ट क्लियर न हो तो ड्राइव बदलें।"]}, {"code": "F42", "name": "Phase UW Short", "type": "NonReset", "cause": "Excessive current detected between output terminals U and W.", "actions": ["Check the motor and drive output terminal wiring for a shorted condition.", "Megger phase-to-phase (U to W).", "Replace drive if the fault cannot be cleared."], "params": [], "name_hi": "फेज़ UW शॉर्ट", "cause_hi": "आउटपुट टर्मिनल U और W के बीच अत्यधिक करंट का पता चला।", "actions_hi": ["मोटर व ड्राइव आउटपुट टर्मिनल वायरिंग में शॉर्ट जाँचें।", "फेज़-टू-फेज़ (U से W) मेगर टेस्ट करें।", "फॉल्ट क्लियर न हो तो ड्राइव बदलें।"]}, {"code": "F43", "name": "Phase VW Short", "type": "NonReset", "cause": "Excessive current detected between output terminals V and W.", "actions": ["Check the motor and drive output terminal wiring for a shorted condition.", "Megger phase-to-phase (V to W).", "Replace drive if the fault cannot be cleared."], "params": [], "name_hi": "फेज़ VW शॉर्ट", "cause_hi": "आउटपुट टर्मिनल V और W के बीच अत्यधिक करंट का पता चला।", "actions_hi": ["मोटर व ड्राइव आउटपुट टर्मिनल वायरिंग में शॉर्ट जाँचें।", "फेज़-टू-फेज़ (V से W) मेगर टेस्ट करें।", "फॉल्ट क्लियर न हो तो ड्राइव बदलें।"]}, {"code": "F48", "name": "Params Defaulted", "type": "NonReset", "cause": "The drive was commanded to write default values to EEPROM.", "actions": ["Clear the fault or cycle power to the drive.", "Reprogram the drive parameters as needed (motor nameplate data first).", "Verify P101, P102, P103 match the motor."], "params": ["P101", "P102", "P103", "P112"], "name_hi": "पैरामीटर डिफॉल्टेड", "cause_hi": "ड्राइव को EEPROM में डिफॉल्ट मान लिखने का आदेश दिया गया।", "actions_hi": ["फॉल्ट क्लियर करें या ड्राइव पावर साइकल करें।", "आवश्यकतानुसार ड्राइव पैरामीटर पुनः प्रोग्राम करें (पहले मोटर नेमप्लेट डेटा)।", "P101, P102, P103 मोटर से मेल खाते हैं, यह जाँचें।"]}, {"code": "F63", "name": "SW OverCurrent", "type": "Auto", "cause": "Programmed A448 [SW Current Trip] level has been exceeded.", "actions": ["Check load requirements against the A448 [SW Current Trip] setting.", "Monitor d003 [Output Current]; reduce load or raise A448 if appropriate.", "Check motor condition for bearing failure or winding degradation."], "params": ["A448", "d003"], "name_hi": "SW ओवरकरंट", "cause_hi": "प्रोग्राम किया गया A448 [SW करंट ट्रिप] स्तर पार हो गया।", "actions_hi": ["A448 [SW करंट ट्रिप] सेटिंग के विरुद्ध लोड आवश्यकताएँ जाँचें।", "d003 [आउटपुट करंट] की निगरानी करें; उपयुक्त हो तो लोड घटाएँ या A448 बढ़ाएँ।", "बियरिंग विफलता या वाइंडिंग क्षरण के लिए मोटर की स्थिति जाँचें।"]}, {"code": "F64", "name": "Drive Overload", "type": "NonReset", "cause": "Drive rating of 150% for 1 minute or 200% for 3 seconds has been exceeded.", "actions": ["Reduce the load or upsize the drive.", "Extend acceleration time: increase P109 [Accel Time 1].", "Check motor sizing and for mechanical issues (seized bearings, misalignment)."], "params": ["P109"], "name_hi": "ड्राइव ओवरलोड", "cause_hi": "ड्राइव रेटिंग 150% पर 1 मिनट या 200% पर 3 सेकंड पार हो गई।", "actions_hi": ["लोड घटाएँ या ड्राइव का आकार बढ़ाएँ।", "एक्सेलरेशन टाइम बढ़ाएँ: P109 बढ़ाएँ।", "मोटर साइज़िंग और मैकेनिकल समस्याएँ (सीज़ बियरिंग, मिसअलाइनमेंट) जाँचें।"]}, {"code": "F70", "name": "Power Unit", "type": "NonReset", "cause": "Failure detected in the drive power section (IGBT / gate driver / DC bus).", "actions": ["Cycle power (remove AC for 5 minutes, then reapply).", "Disconnect motor and megger output terminals before re-powering.", "Replace drive if the fault cannot be cleared."], "params": [], "name_hi": "पावर यूनिट", "cause_hi": "ड्राइव पावर सेक्शन (IGBT / गेट ड्राइवर / DC बस) में विफलता का पता चला।", "actions_hi": ["पावर साइकल करें (AC 5 मिनट हटाएँ, फिर पुनः लगाएँ)।", "पुनः पावर देने से पहले मोटर डिस्कनेक्ट कर आउटपुट टर्मिनल मेगर करें।", "फॉल्ट क्लियर न हो तो ड्राइव बदलें।"]}, {"code": "F71", "name": "Net Loss", "type": "NonReset", "cause": "The communication network has faulted.", "actions": ["Cycle power.", "Check communications cabling (RS-485 / DSI).", "Check the network adapter setting.", "Check the external network status (PLC/master running)."], "params": ["C302", "C303", "C306"], "name_hi": "नेट लॉस", "cause_hi": "कम्युनिकेशन नेटवर्क फॉल्ट हो गया।", "actions_hi": ["पावर साइकल करें।", "कम्युनिकेशन केबलिंग (RS-485 / DSI) जाँचें।", "नेटवर्क अडैप्टर सेटिंग जाँचें।", "बाहरी नेटवर्क स्थिति (PLC/मास्टर चालू) जाँचें।"]}, {"code": "F81", "name": "Comm Loss", "type": "NonReset", "cause": "RS-485 (DSI) port stopped communicating.", "actions": ["If the adapter was not intentionally disconnected, check wiring to the port; replace wiring/port expander/adapter as required.", "Check the connection and shield grounding (Terminal 16 → PE).", "Verify the PLC/HMI is actively polling this node (C303).", "Adjust C304 [Comm Loss Action] / C305 [Comm Loss Time] per application."], "params": ["C303", "C304", "C305"], "name_hi": "कॉम लॉस", "cause_hi": "RS-485 (DSI) पोर्ट ने कम्युनिकेट करना बंद कर दिया।", "actions_hi": ["यदि अडैप्टर जानबूझकर डिस्कनेक्ट नहीं किया गया, तो पोर्ट की वायरिंग जाँचें; आवश्यकतानुसार वायरिंग/पोर्ट एक्सपैंडर/अडैप्टर बदलें।", "कनेक्शन और शील्ड ग्राउंडिंग (टर्मिनल 16 → PE) जाँचें।", "पुष्टि करें कि PLC/HMI इस नोड (C303) को सक्रिय रूप से पोल कर रहा है।", "अनुप्रयोग अनुसार C304 [कॉम लॉस एक्शन] / C305 [कॉम लॉस टाइम] समायोजित करें।"]}, {"code": "F100", "name": "Parameter Checksum", "type": "NonReset", "cause": "The checksum read from the board does not match the calculated checksum.", "actions": ["Set P112 [Reset To Defalts] to option 1 'Reset Defaults'.", "Reprogram all motor and application parameters.", "Replace drive if the fault recurs (failing EEPROM/control board)."], "params": ["P112"], "name_hi": "पैरामीटर चेकसम", "cause_hi": "बोर्ड से पढ़ा गया चेकसम गणना किए गए चेकसम से मेल नहीं खाता।", "actions_hi": ["P112 [रीसेट टू डिफॉल्ट] को विकल्प 1 'रीसेट डिफॉल्ट' पर सेट करें।", "सभी मोटर व अनुप्रयोग पैरामीटर पुनः प्रोग्राम करें।", "फॉल्ट दोबारा आए तो ड्राइव बदलें (विफल EEPROM/कंट्रोल बोर्ड)।"]}, {"code": "F122", "name": "I/O Board Fail", "type": "NonReset", "cause": "Failure detected in the drive control and I/O section.", "actions": ["Cycle power.", "Check for ESD damage if recent work was done on the terminals.", "Replace drive if the fault cannot be cleared."], "params": [], "name_hi": "I/O बोर्ड फेल", "cause_hi": "ड्राइव कंट्रोल और I/O सेक्शन में विफलता का पता चला।", "actions_hi": ["पावर साइकल करें।", "हाल में टर्मिनल पर काम हुआ हो तो ESD क्षति जाँचें।", "फॉल्ट क्लियर न हो तो ड्राइव बदलें।"]}], "symptoms": [{"title": "Motor does not start", "rows": [{"cause": "No output voltage to the motor", "ind": "None", "action": "Check the power circuit — supply voltage, all fuses and disconnects. Verify the motor is connected properly. Verify a Start signal is present (for 2-wire, Run Fwd OR Run Rev active, not both). Verify I/O Terminal 01 is active. Verify P106 [Start Source] matches your configuration and A434 [Reverse Disable] is not blocking movement."}, {"cause": "Improper boost setting at initial start-up", "ind": "None", "action": "Set A453 [Boost Select] to option 2 '35.0, VT'."}, {"cause": "Drive is faulted", "ind": "Flashing red status light", "action": "Clear fault: press Stop, cycle power, set A450 [Fault Clear] = 1, or cycle a digital input set to 'Clear Fault' (t201/t202 = 7)."}], "title_hi": "मोटर स्टार्ट नहीं होती"}, {"title": "Drive does not start from Integral Keypad", "rows": [{"cause": "Integral keypad is not enabled", "ind": "Green LED above Start key not illuminated", "action": "Set P106 [Start Source] = 0 'Keypad', OR set t201/t202 [Digital Inx Select] = 5 'Local' and activate the input."}, {"cause": "I/O Terminal 01 'Stop' input not present", "ind": "None", "action": "Wire inputs correctly and/or install the jumper (between Terminals 01 and 11)."}], "title_hi": "ड्राइव इंटीग्रल कीपैड से स्टार्ट नहीं होती"}, {"title": "Drive does not start from Start/Run inputs on terminal block", "rows": [{"cause": "Drive is faulted", "ind": "Flashing red status light", "action": "Clear fault (Stop / cycle power / A450=1 / digital input set to 'Clear Fault')."}, {"cause": "Incorrect programming", "ind": "None", "action": "P106 set to 'Keypad' or 'RS485 Port', or t201/t202 set to 'Local' with input active. Check parameter settings."}, {"cause": "Incorrect input wiring", "ind": "None", "action": "2-wire needs Run Fwd/Run Rev/Jog; 3-wire needs Start + Stop; Stop is always required. Wire correctly and/or install jumper."}, {"cause": "Incorrect Sink/Source DIP switch setting", "ind": "None", "action": "Set the SNK/SRC switch to match the wiring scheme."}], "title_hi": "ड्राइव टर्मिनल ब्लॉक के Start/Run इनपुट से स्टार्ट नहीं होती"}, {"title": "Drive does not respond to changes in speed command", "rows": [{"cause": "No value coming from the command source", "ind": "'Run' lit, output 0 Hz", "action": "Check d012 [Control Source]. If analog, check wiring and meter the signal. Check d002 [Commanded Freq]."}, {"cause": "Wrong reference source selected via remote/digital inputs", "ind": "None", "action": "Check d012 [Control Source], d014 [Dig In Status] (inputs selecting an alternate source), and P108 [Speed Reference]. Review the Speed Reference Control chart."}], "title_hi": "ड्राइव स्पीड कमांड बदलने पर प्रतिक्रिया नहीं देती"}, {"title": "Motor/drive will not accelerate to commanded speed", "rows": [{"cause": "Acceleration time is excessive", "ind": "None", "action": "Reprogram P109 [Accel Time 1] or A401 [Accel Time 2]."}, {"cause": "Excess load / short accel forces current limit", "ind": "None", "action": "Compare d003 [Output Current] with A442 [Current Limit]. Remove excess load or reprogram accel. Check A453 [Boost Select]."}, {"cause": "Speed command source/value unexpected", "ind": "None", "action": "Verify d002 [Commanded Freq]; check d012 [Control Source]."}, {"cause": "Programming limits output", "ind": "None", "action": "Check P105 [Maximum Freq] to ensure speed is not limited."}], "title_hi": "मोटर/ड्राइव कमांड की गई स्पीड तक एक्सेलरेट नहीं होती"}, {"title": "Motor operation is unstable", "rows": [{"cause": "Motor data incorrectly entered", "ind": "None", "action": "Correctly enter motor nameplate data in P101, P102, P103. Enable A436 [Compensation]. Use A453 [Boost Select] to reduce boost level."}], "title_hi": "मोटर संचालन अस्थिर है"}, {"title": "Drive will not reverse motor direction", "rows": [{"cause": "Digital input not selected for reversing", "ind": "None", "action": "Check [Digital Inx Sel]; choose the correct input and program for reversing mode."}, {"cause": "Digital input incorrectly wired", "ind": "None", "action": "Check input wiring."}, {"cause": "Motor wiring improperly phased for reverse", "ind": "None", "action": "Switch two motor leads."}, {"cause": "Reverse is disabled", "ind": "None", "action": "Check A434 [Reverse Disable]."}], "title_hi": "ड्राइव मोटर दिशा उलट नहीं करती"}, {"title": "Drive does not power up", "rows": [{"cause": "No input power to drive", "ind": "None", "action": "Check the power circuit — supply voltage, all fuses and disconnects."}, {"cause": "Jumper between P2 and P1 not installed / DC Bus Inductor not connected (Frame C)", "ind": "None", "action": "Install the jumper or connect the DC Bus Inductor. The Frame C drive will not power up without a jumper or inductor between P1 and P2."}], "title_hi": "ड्राइव पावर-अप नहीं होती"}], "params": {"Display (d) — View Only": [["d001", "Output Freq", "Output frequency at T1/T2/T3. 0.0–P105 Hz."], ["d002", "Commanded Freq", "Active frequency command (shown even when stopped)."], ["d003", "Output Current", "Output current at T1/T2/T3. 0–(Rated A ×2)."], ["d004", "Output Voltage", "Output voltage at T1/T2/T3."], ["d005", "DC Bus Voltage", "Present DC bus voltage level."], ["d006", "Drive Status", "Bits: Running / Forward / Accelerating / Decelerating."], ["d007", "Fault 1 Code", "Most recent fault code (F2–F122)."], ["d008", "Fault 2 Code", "Second most recent fault."], ["d009", "Fault 3 Code", "Third most recent fault."], ["d010", "Process Display", "Output freq scaled by A440 or A438/A439."], ["d012", "Control Source", "Active Start + Speed command source."], ["d013", "Contrl In Status", "Status of terminal block control inputs (Start/Dir/Stop)."], ["d014", "Dig In Status", "Status of digital inputs 1 & 2 (Term 05/06)."], ["d015", "Comm Status", "Rx/Tx/connected/error bits for comms."], ["d016", "Control SW Ver", "Main control board software version."], ["d017", "Drive Type", "Used by Rockwell field service."], ["d018", "Elapsed Run Time", "Accumulated run hours (10-hr increments)."], ["d019", "Testpoint Data", "Value of function selected in A459."], ["d020", "Analog In 0-10V", "Present 0–10V input value (100%=10V)."], ["d021", "Analog In 4-20mA", "Present 4–20mA input value (0%=4mA,100%=20mA)."], ["d022", "Drive Temp", "Present power section temperature (0–120 °C)."]], "Basic Program (P)": [["P101", "Motor NP Volts", "⚠ Stop first. Motor nameplate rated voltage."], ["P102", "Motor NP Hertz", "⚠ Stop first. Motor nameplate frequency. Default 60 Hz."], ["P103", "Motor OL Current", "Max allowable motor current = nameplate FLA. F7 trips at 150%/60s or 200%/3s."], ["P104", "Minimum Freq", "Lowest continuous output freq. Default 0.0 Hz."], ["P105", "Maximum Freq", "⚠ Stop first. Highest output freq. Default 60 Hz."], ["P106", "Start Source", "⚠ Stop first. 0=Keypad,1=3-Wire,2=2-Wire,3=2-W Lvl,4=2-W HiSpd,5=Comm Port."], ["P107", "Stop Mode", "0=Ramp CF,1=Coast CF,2=DC Brake CF,3=DCBrkAuto CF,4=Ramp,5=Coast,6=DC Brake,7=DC BrakeAuto."], ["P108", "Speed Reference", "0=Drive Pot,1=InternalFreq,2=0-10V,3=4-20mA,4=Preset Freq,5=Comm Port."], ["P109", "Accel Time 1", "Accel rate for all speed increases. 0–600s, default 10s."], ["P110", "Decel Time 1", "Decel rate for all speed decreases. 0.1–600s, default 10s."], ["P111", "Motor OL Ret", "0=Disabled,1=Enabled. Retains OL counter across power cycles."], ["P112", "Reset To Defalts", "⚠ Stop first. 1=Reset Defaults (causes F48)."]], "Terminal Block (t)": [["t201", "Digital In1 Sel", "⚠ Stop first. Term 05 function. 0=NotUsed,1=Acc2&Dec2,2=Jog,3=Aux Fault,4=Preset Freq,5=Local,6=Comm Port,7=Clear Fault,8=RampStop,9=CoastStop,10=DCInjStop,11=Jog Fwd,12=Jog Rev,13=10V In,14=20mA In,15=Anlg Invert."], ["t202", "Digital In2 Sel", "⚠ Stop first. Term 06 function (same options as t201)."], ["t211", "Anlg In 0-10V Lo", "0–10V level mapped to P104 [Min Freq]. Default 0%."], ["t212", "Anlg In 0-10V Hi", "0–10V level mapped to P105 [Max Freq]. Default 100%."], ["t213", "Anlg In4-20mA Lo", "4–20mA level mapped to P104 [Min Freq]. Default 0%."], ["t214", "Anlg In4-20mA Hi", "4–20mA level mapped to P105 [Max Freq]. Default 100%."], ["t221", "Relay Out Sel", "0=Ready/Fault,1=AtFreq,2=MotorRunning,3=Reverse,4=Motor Overld,5=Ramp Reg,6=Above Freq,7=Above Cur,8=Above DCVolt,9=Retries Exst,10=Above Anlg V,11=ParamControl,12=NonRec Fault,13=I/O Control."], ["t222", "Relay Out Level", "Trip point for relay when t221=6,7,8,10,11."]], "Communications (C)": [["C301", "Language", "1=English (default)."], ["C302", "Comm Data Rate", "0=1200…3=9600(def)…5=38.4K. Cycle power to apply."], ["C303", "Comm Node Addr", "RS-485 node address 1–247. Default 100."], ["C304", "Comm Loss Action", "0=Fault(F81),1=Coast,2=Stop,3=Continu Last."], ["C305", "Comm Loss Time", "Time before Comm Loss Action. 0.1–60s, default 5s."], ["C306", "Comm Format", "0=RTU 8-N-1(def)…5=RTU 8-O-2. Cycle power to apply."], ["C307", "Comm Write Mode", "0=Save(NVS),1=RAM Only."]], "Advanced Program (A)": [["A401", "Accel Time 2", "Alt accel rate (except jog). 0–600s, default 20s."], ["A402", "Decel Time 2", "Alt decel rate (except jog). 0.1–600s, default 20s."], ["A403", "S Curve %", "% of ramp applied as S-curve. 0–100%, default 0."], ["A404", "Jog Frequency", "Output freq on jog. Default 10 Hz."], ["A405", "Jog Accel/Decel", "Accel/decel on jog. Default 10s."], ["A409", "Internal Freq", "Freq command when P108=1. Default 60 Hz."], ["A410", "Preset Freq 0", "Default 0.0 Hz."], ["A411", "Preset Freq 1", "Default 5.0 Hz."], ["A412", "Preset Freq 2", "Default 10.0 Hz."], ["A413", "Preset Freq 3", "Default 20.0 Hz."], ["A418", "Skip Frequency", "Freq the drive will not operate at. 0=disabled."], ["A419", "Skip Freq Band", "Bandwidth around skip freq. 0–30 Hz."], ["A424", "DC Brake Time", "DC brake injection time. 0–99.9s (99.9=continuous)."], ["A425", "DC Brake Level", "Max DC brake current. 0–(Rated A ×1.8). ⚠ Not for PM/sync motors."], ["A427", "DB Resistor Sel", "⚠ Stop first. Frame C only. 0=Disabled,1=Normal RA,2=No Protection,3=%Duty."], ["A428", "DB Duty Cycle", "⚠ Stop first. Frame C only. 1–99%, default 5%."], ["A433", "Start At PowerUp", "⚠ Stop first. 0=Disabled,1=Enabled. ⚠ unintended-start hazard."], ["A434", "Reverse Disable", "⚠ Stop first. 0=Rev Enabled,1=Rev Disabled."], ["A435", "Flying Start En", "0=Disabled,1=Enabled. Reconnect to a spinning motor."], ["A436", "Compensation", "0=Disabled,1=Electrical(def),2=Mechanical,3=Both. Fixes instability."], ["A437", "Slip Hertz @ FLA", "Slip compensation. 0–10 Hz, default 2 Hz."], ["A438", "Process Time Lo", "Scales d010 at Min Freq."], ["A439", "Process Time Hi", "Scales d010 at Max Freq."], ["A440", "Process Factor", "Scales d010 [Process Display]. Default 30."], ["A441", "Bus Reg Mode", "0=Disabled,1=Enabled(def). Voltage regulation on decel."], ["A442", "Current Limit", "Max output current before limiting. Default Rated A ×1.5, max ×1.8."], ["A444", "Motor OL Select", "Class 10 OL derate: 0=No Derate,1=Min,2=Max."], ["A446", "PWM Frequency", "Carrier freq 2–10 kHz, default 4 kHz. Higher = more heat."], ["A448", "SW Current Trip", "Software instantaneous current trip (F63). 0=disabled."], ["A450", "Fault Clear", "⚠ Stop first. 0=Ready,1=Reset Fault,2=Clear Buffer."], ["A451", "Auto Rstrt Tries", "Max auto-reset attempts. 0–9, default 0. ⚠ auto-start hazard."], ["A452", "Auto Rstrt Delay", "Delay between restart attempts. 0–120s, default 1s."], ["A453", "Boost Select", "V/Hz boost. 1-4=Variable Torque, 5-14=Constant Torque. Default '5.0,CT'."], ["A457", "Maximum Voltage", "Highest output voltage. Default Rated Volts."], ["A458", "Program Lock", "0=Unlocked,1=Locked. Protects parameters."], ["A459", "Testpoint Sel", "Used by Rockwell field service."], ["A461", "Motor NP FLA", "Motor nameplate full load amps."]]}, "protection": [["Motor Overload (I²t)", "150% for 60 s, 200% for 3 s — Class 10 protection (NEC 430)."], ["Overcurrent", "200% hardware limit; 300% instantaneous fault."], ["OverVoltage trip", "405V DC bus (200–240V input) · 810V DC bus (380–480V input)."], ["UnderVoltage trip", "210V DC bus (200–240V input) · 390V DC bus (380–480V input)."], ["Control ride-through", "Minimum 0.5 s (typical 2 s)."], ["Faultless power ride-through", "100 ms."], ["Output frequency", "0–400 Hz, programmable."], ["Carrier (PWM) frequency", "2–10 kHz; rating based on 4 kHz."], ["Single-phase operation", "Provides 35% of rated current (3-phase gives full rating)."], ["Short-circuit rating", "100,000 A symmetrical (with proper fuse/breaker)."]], "wiring": {"io_terminals": [["01", "Stop", "Coast", "स्टॉप इनपुट — ड्राइव स्टार्ट होने के लिए फैक्ट्री जम्पर या NC इनपुट मौजूद होना चाहिए। 3-वायर में P107 नियंत्रित करता है।", "P106/P107"], ["02", "Start/Run FWD", "Not Active", "स्टार्ट / रन फॉरवर्ड कमांड (डिफॉल्ट कीपैड से)।", "P106/P107"], ["03", "Direction/Run REV", "Not Active", "दिशा / रन रिवर्स। रिवर्स बंद करने हेतु A434 देखें।", "P106/P107/A434"], ["04", "Digital Common", "–", "डिजिटल इनपुट के लिए कॉमन (एनालॉग I/O से आइसोलेटेड)।", "–"], ["05", "Digital Input 1", "Preset Freq", "t201 से प्रोग्राम करें।", "t201"], ["06", "Digital Input 2", "Preset Freq", "t202 से प्रोग्राम करें।", "t202"], ["11", "+24V DC", "–", "डिजिटल इनपुट हेतु ड्राइव-सप्लाई पावर। अधिकतम 100 mA।", "–"], ["12", "+10V DC", "–", "0–10V पोटेंशियोमीटर हेतु पावर। अधिकतम 15 mA।", "P108"], ["13", "0…10V In", "Not Active", "बाहरी 0–10V इनपुट / पोट वाइपर (इम्पीडेंस 100 kΩ)।", "P108"], ["14", "Analog Common", "–", "0–10V या 4–20mA हेतु कॉमन (डिजिटल I/O से आइसोलेटेड)।", "–"], ["15", "4…20mA In", "Not Active", "बाहरी 4–20mA इनपुट (इम्पीडेंस 250 Ω)।", "P108"], ["16", "RS-485 (DSI) Shield", "–", "RS-485 पोर्ट उपयोग करते समय सेफ्टी ग्राउंड-PE से जोड़ें।", "–"], ["R1", "Relay N.O.", "Fault", "आउटपुट रिले नॉर्मली-ओपन कॉन्टैक्ट।", "t221"], ["R2", "Relay Common", "–", "आउटपुट रिले कॉमन।", "–"], ["R3", "Relay N.C.", "Fault", "आउटपुट रिले नॉर्मली-क्लोज़्ड कॉन्टैक्ट।", "t221"]], "schemes": [{"name": "2-Wire SRC Non-Reversing", "name_hi": "2-वायर SRC नॉन-रिवर्सिंग", "p106": "P106 = 2, 3, or 4", "desc": "A maintained Stop-Run input between Terminal 11 (+24V) and 02. Input must stay active to run; opening it stops the drive per P107 [Stop Mode].", "desc_hi": "टर्मिनल 11 (+24V) और 02 के बीच मेंटेन्ड Stop-Run इनपुट। चलने हेतु इनपुट सक्रिय रहे; खोलने पर P107 अनुसार रुकेगी।", "wires": "11→01 jumper; maintained switch 11→02"}, {"name": "2-Wire SRC Run FWD / Run REV", "name_hi": "2-वायर SRC रन-फॉरवर्ड / रन-रिवर्स", "p106": "P106 = 2, 3, or 4", "desc": "Two maintained inputs: 02 = Run Forward, 03 = Run Reverse (both from +24V). If both close together an undetermined state occurs.", "desc_hi": "दो मेंटेन्ड इनपुट: 02 = रन फॉरवर्ड, 03 = रन रिवर्स (दोनों +24V से)। दोनों एक साथ बंद होने पर अनिश्चित स्थिति।", "wires": "11→02 (FWD), 11→03 (REV)"}, {"name": "3-Wire SRC Non-Reversing", "name_hi": "3-वायर SRC नॉन-रिवर्सिंग", "p106": "P106 = 1", "desc": "Momentary Start on Terminal 02 starts the drive; a Stop input on Terminal 01 stops it per P107. Needs 3 wires (Stop, Start, common).", "desc_hi": "टर्मिनल 02 पर मोमेंटरी Start ड्राइव चालू करता है; टर्मिनल 01 पर Stop इनपुट P107 अनुसार रोकता है। 3 तार चाहिए।", "wires": "Stop→01, Start→02 (momentary)"}, {"name": "3-Wire SRC Reversing", "name_hi": "3-वायर SRC रिवर्सिंग", "p106": "P106 = 1", "desc": "Momentary Start on 02, Stop on 01, and a maintained Direction input on Terminal 03 selects FWD/REV.", "desc_hi": "02 पर मोमेंटरी Start, 01 पर Stop, और टर्मिनल 03 पर मेंटेन्ड Direction इनपुट FWD/REV चुनता है।", "wires": "Stop→01, Start→02, Direction→03"}], "notes_en": ["Default control scheme is Source (SRC). The Stop terminal is jumpered (01↔11) to allow keypad starting.", "If you change to Sink (SNK): remove the 01↔11 jumper and install a jumper between 01↔04.", "I/O Terminal 01 is ALWAYS coast-to-stop EXCEPT in 3-Wire control, where it follows P107 [Stop Mode].", "Remove the 01↔11 jumper whenever you use Terminal 01 as a real stop/enable input.", "Each digital input draws 6 mA. Terminal 11 (+24V) max output is 100 mA.", "Only ONE analog speed source (0–10V OR 4–20mA) may be connected at a time.", "Do not exceed 30 m (100 ft) of control wiring. Tie I/O Common to PE ground for noise immunity.", "⚠ Never drive the 4–20mA input from a voltage source — component damage can occur.", "⚠ A contactor that cycles AC line to start/stop the motor must not exceed 1 operation/minute — drive damage can occur."], "notes_hi": ["डिफॉल्ट कंट्रोल स्कीम Source (SRC) है। कीपैड से स्टार्ट हेतु Stop टर्मिनल जम्पर (01↔11) लगा होता है।", "Sink (SNK) में बदलें तो: 01↔11 जम्पर हटाएँ और 01↔04 के बीच जम्पर लगाएँ।", "टर्मिनल 01 हमेशा coast-to-stop होता है, सिवाय 3-वायर कंट्रोल के, जहाँ यह P107 अनुसार चलता है।", "टर्मिनल 01 को वास्तविक stop/enable इनपुट के रूप में उपयोग करते समय 01↔11 जम्पर हटाएँ।", "प्रत्येक डिजिटल इनपुट 6 mA खींचता है। टर्मिनल 11 (+24V) अधिकतम आउटपुट 100 mA।", "एक समय पर केवल एक एनालॉग स्पीड स्रोत (0–10V या 4–20mA) जोड़ें।", "कंट्रोल वायरिंग 30 मी (100 फीट) से अधिक न हो। नॉइज़ इम्यूनिटी हेतु I/O Common को PE ग्राउंड से जोड़ें।", "⚠ 4–20mA इनपुट को वोल्टेज स्रोत से कभी न चलाएँ — कंपोनेंट क्षति हो सकती है।", "⚠ मोटर स्टार्ट/स्टॉप हेतु AC लाइन साइकल करने वाला कॉन्टैक्टर 1 ऑपरेशन/मिनट से अधिक न हो — ड्राइव क्षति हो सकती है।"], "power_terminals": [["R/L1, S/L2", "1-phase input", "1-फेज़ इनपुट"], ["R/L1, S/L2, T/L3", "3-phase input", "3-फेज़ इनपुट"], ["U/T1, V/T2, W/T3", "To motor (swap any two leads to reverse)", "मोटर को (दिशा उलटने हेतु कोई दो लीड बदलें)"], ["P1, P2", "DC Bus Inductor (Frame C). Jumper fitted; remove only when adding inductor. Drive won't power up without jumper/inductor.", "DC बस इंडक्टर (फ्रेम C)। जम्पर लगा; इंडक्टर जोड़ने पर ही हटाएँ। जम्पर/इंडक्टर बिना ड्राइव चालू नहीं होगी।"], ["DC+, DC-", "DC Bus connection (not on 120V 1-ph)", "DC बस कनेक्शन (120V 1-फेज़ पर नहीं)"], ["BR+, BR-", "Dynamic Brake resistor (Frame C, 5.5 kW+)", "डायनेमिक ब्रेक रेज़िस्टर (फ्रेम C, 5.5 kW+)"], ["PE", "Safety ground", "सेफ्टी ग्राउंड"]]}};
+let LANG = 'en';
+
+/* ---------- Build Faults ---------- */
+const faultGrid=document.getElementById('faultGrid');
+DATA.faults.forEach(f=>{
+  const cls=f.type==='Auto'?'auto':'nonreset';
+  const el=document.createElement('div');
+  el.className='fault';
+  el.dataset.search=(f.code+' '+f.name+' '+(f.name_hi||'')+' '+f.cause+' '+(f.cause_hi||'')+' '+f.actions.join(' ')+' '+(f.actions_hi||[]).join(' ')).toLowerCase();
+  el._f=f; el._cls=cls;
+  el.innerHTML=`<div class="top"><span class="fcode ${cls}">${f.code}</span>
+    <div style="flex:1"><div class="fname"></div><div class="ftype"></div></div><span class="chev">▶</span></div>
+    <div class="fbody"><div class="fbody-inner">
+      <div class="cause"></div><div class="steps-label"></div><ol class="steps"></ol>
+      ${(f.params||[]).length?`<div class="pchips">${f.params.map(p=>`<span class="pchip" data-param="${p}">${p}</span>`).join('')}</div>`:''}
+    </div></div>`;
+  el.querySelector('.top').addEventListener('click',()=>el.classList.toggle('open'));
+  faultGrid.appendChild(el);
+});
+
+/* ---------- Build Symptoms ---------- */
+const sympList=document.getElementById('sympList');
+DATA.symptoms.forEach(s=>{
+  const el=document.createElement('div');el.className='symp';el._s=s;
+  el.dataset.search=(s.title+' '+(s.title_hi||'')+' '+s.rows.map(r=>r.cause+' '+r.action).join(' ')).toLowerCase();
+  const rows=s.rows.map(r=>`<div class="srow"><div class="c"><span class="cause-txt">${r.cause}</span>${r.ind&&r.ind!=='None'?` <span class="ind">[${r.ind}]</span>`:''}</div><div class="a">${r.action}</div></div>`).join('');
+  el.innerHTML=`<div class="shead"><span class="ico">●</span><span class="stitle"></span><span class="chev">▶</span></div><div class="sbody">${rows}</div>`;
+  el.querySelector('.shead').addEventListener('click',()=>el.classList.toggle('open'));
+  sympList.appendChild(el);
+});
+
+/* ---------- Parameters ---------- */
+const paramList=document.getElementById('paramList');
+Object.entries(DATA.params).forEach(([group,rows])=>{
+  const trs=rows.map(([id,nm,ds])=>{
+    const dsHtml=ds.replace(/⚠[^.]*\./g,m=>`<span class="warn">${m}</span>`);
+    return `<tr data-search="${(id+' '+nm+' '+ds).toLowerCase()}"><td class="pid">${id}</td><td class="pnm">${nm}</td><td class="pds">${dsHtml}</td></tr>`;
+  }).join('');
+  const g=document.createElement('div');g.className='pgroup';
+  g.innerHTML=`<h3>${group}</h3><table class="ptable"><tbody>${trs}</tbody></table>`;
+  paramList.appendChild(g);
+});
+
+/* ---------- Protection ---------- */
+const protList=document.getElementById('protList');
+DATA.protection.forEach(([t,v])=>{const d=document.createElement('div');d.className='pcard';d.innerHTML=`<div class="t">${t}</div><div class="v">${v}</div>`;protList.appendChild(d);});
+
+/* ---------- Wiring ---------- */
+const schemeList=document.getElementById('schemeList');
+DATA.wiring.schemes.forEach(s=>{
+  const el=document.createElement('div');el.className='scheme';el._s=s;
+  el.innerHTML=`<div class="sn"><span class="snm"></span><span class="p106">${s.p106}</span></div><div class="sd"></div><div class="sw">${s.wires}</div>`;
+  schemeList.appendChild(el);
+});
+const ioList=document.getElementById('ioList');
+DATA.wiring.io_terminals.forEach(([t,sig,def,desc,par])=>{
+  const tr=document.createElement('tr');tr._desc=desc;
+  tr.innerHTML=`<td class="pid">${t}</td><td class="pnm">${sig}</td><td class="pds"><span class="iodesc"></span> <span style="color:var(--faint)">· ${def} · ${par}</span></td>`;
+  ioList.appendChild(tr);
+});
+const powList=document.getElementById('powList');
+DATA.wiring.power_terminals.forEach(([t,en,hi])=>{
+  const tr=document.createElement('tr');tr._en=en;tr._hi=hi;
+  tr.innerHTML=`<td class="pid" style="width:150px">${t}</td><td class="pds powdesc"></td>`;
+  powList.appendChild(tr);
+});
+const noteList=document.getElementById('noteList');
+DATA.wiring.notes_en.forEach((n,i)=>{const li=document.createElement('li');li._en=n;li._hi=DATA.wiring.notes_hi[i];if(n.indexOf('⚠')===0)li.className='warn';noteList.appendChild(li);});
+
+/* ---------- Language apply ---------- */
+function setLang(l){
+  LANG=l;
+  document.getElementById('btn-en').classList.toggle('active',l==='en');
+  document.getElementById('btn-hi').classList.toggle('active',l==='hi');
+  document.documentElement.lang=l;
+  // static [data-en/hi]
+  document.querySelectorAll('[data-en]').forEach(el=>{
+    const v=el.getAttribute('data-'+l); if(v!=null)el.innerHTML=v;
+    if(l==='hi')el.setAttribute('lang-hi','');else el.removeAttribute('lang-hi');
+  });
+  // faults
+  document.querySelectorAll('#faultGrid .fault').forEach(el=>{
+    const f=el._f;
+    el.querySelector('.fname').textContent=(l==='hi'&&f.name_hi)?f.name_hi:f.name;
+    el.querySelector('.ftype').textContent=f.type==='Auto'?(l==='hi'?'ऑटो-रीसेट':'Auto-reset'):(l==='hi'?'नॉन-रीसेटेबल':'Non-resettable');
+    const cause=(l==='hi'&&f.cause_hi)?f.cause_hi:f.cause;
+    el.querySelector('.cause').innerHTML=`<b>${l==='hi'?'कारण:':'Cause:'}</b> ${cause}`;
+    el.querySelector('.steps-label').textContent=l==='hi'?'सुधारात्मक कार्रवाई':'Corrective actions';
+    const acts=(l==='hi'&&f.actions_hi)?f.actions_hi:f.actions;
+    el.querySelector('.steps').innerHTML=acts.map(a=>`<li>${a}</li>`).join('');
+    el.querySelectorAll('.fname,.cause,.steps,.ftype').forEach(x=>{if(l==='hi')x.setAttribute('lang-hi','');else x.removeAttribute('lang-hi');});
+  });
+  // symptoms
+  document.querySelectorAll('#sympList .symp').forEach(el=>{
+    const s=el._s;
+    el.querySelector('.stitle').textContent=(l==='hi'&&s.title_hi)?s.title_hi:s.title;
+    if(l==='hi')el.querySelector('.stitle').setAttribute('lang-hi','');else el.querySelector('.stitle').removeAttribute('lang-hi');
+  });
+  // schemes
+  document.querySelectorAll('#schemeList .scheme').forEach(el=>{
+    const s=el._s;
+    el.querySelector('.snm').textContent=(l==='hi'&&s.name_hi)?s.name_hi:s.name;
+    el.querySelector('.sd').textContent=(l==='hi'&&s.desc_hi)?s.desc_hi:s.desc;
+    if(l==='hi'){el.querySelector('.snm').setAttribute('lang-hi','');el.querySelector('.sd').setAttribute('lang-hi','');}else{el.querySelector('.snm').removeAttribute('lang-hi');el.querySelector('.sd').removeAttribute('lang-hi');}
+  });
+  // io terminals (desc only translated via power/notes; io desc kept EN+param, add hi where provided)
+  document.querySelectorAll('#ioList tr').forEach(tr=>{tr.querySelector('.iodesc').textContent=tr._desc;if(l==='hi')tr.querySelector('.iodesc').setAttribute('lang-hi','');else tr.querySelector('.iodesc').removeAttribute('lang-hi');});
+  // power terminals
+  document.querySelectorAll('#powList tr').forEach(tr=>{tr.querySelector('.powdesc').textContent=(l==='hi')?tr._hi:tr._en;if(l==='hi')tr.querySelector('.powdesc').setAttribute('lang-hi','');else tr.querySelector('.powdesc').removeAttribute('lang-hi');});
+  // notes
+  document.querySelectorAll('#noteList li').forEach(li=>{li.textContent=(l==='hi')?li._hi:li._en;if(l==='hi')li.setAttribute('lang-hi','');else li.removeAttribute('lang-hi');});
+}
+
+/* ---------- Tabs ---------- */
+const tabs=document.querySelectorAll('.tab');
+tabs.forEach(t=>t.addEventListener('click',()=>{
+  tabs.forEach(x=>x.classList.remove('active'));t.classList.add('active');
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('p-'+t.dataset.p).classList.add('active');
+  runSearch();
+}));
+
+/* ---------- Param chip jump ---------- */
+document.addEventListener('click',e=>{
+  const chip=e.target.closest('.pchip');if(!chip)return;e.stopPropagation();
+  const pid=chip.dataset.param;
+  document.querySelector('.tab[data-p="params"]').click();
+  const q=document.getElementById('q');q.value=pid;runSearch();
+  setTimeout(()=>{const row=[...document.querySelectorAll('#paramList .ptable tr')].find(r=>r.querySelector('.pid')&&r.querySelector('.pid').textContent===pid);if(row)row.scrollIntoView({block:'center',behavior:'smooth'});},120);
+});
+
+/* ---------- Search ---------- */
+const q=document.getElementById('q'),clearBtn=document.getElementById('clearBtn'),noresult=document.getElementById('noresult');
+function runSearch(){
+  const term=q.value.trim().toLowerCase();
+  clearBtn.style.display=term?'block':'none';
+  const active=document.querySelector('.tab.active').dataset.p;let visible=0;
+  if(active==='faults'){
+    document.querySelectorAll('#faultGrid .fault').forEach(el=>{const hit=!term||el.dataset.search.includes(term);el.style.display=hit?'':'none';if(hit){visible++;if(term)el.classList.add('open');}});
+  }else if(active==='symptoms'){
+    document.querySelectorAll('#sympList .symp').forEach(el=>{const hit=!term||el.dataset.search.includes(term);el.style.display=hit?'':'none';if(hit){visible++;if(term)el.classList.add('open');}});
+  }else if(active==='params'){
+    document.querySelectorAll('.pgroup').forEach(g=>{let gv=0;g.querySelectorAll('tr').forEach(r=>{const hit=!term||r.dataset.search.includes(term);r.style.display=hit?'':'none';if(hit)gv++;});g.style.display=gv?'':'none';visible+=gv;});
+  }else{visible=1;}
+  noresult.style.display=visible?'none':'block';
+}
+q.addEventListener('input',runSearch);
+clearBtn.addEventListener('click',()=>{q.value='';runSearch();q.focus();});
+
+setLang('en');
+</script>
+</body>
+</html>
